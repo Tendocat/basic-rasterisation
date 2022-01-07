@@ -99,9 +99,13 @@ void P_select_closest_vertex(Polygone* poly, int x, int y)
 		return;
 
 	poly->selected = poly->sommets;
+
+	// calcule la distance avec le premier sommet
 	float tmp = sqrt((poly->selected->x-x) * (poly->selected->x-x) +
 					 (poly->selected->y-y) * (poly->selected->y-y));
 	float distance = tmp;
+
+	// calcule la distance avec chaque sommet et met à jour s'il est plus proche
 	for (Liste* i=poly->sommets->last; i!=poly->sommets; i=i->last)
 	{
 		if ((tmp=sqrt((i->x-x)*(i->x-x)+(i->y-y)*(i->y-y))) < distance) {
@@ -131,11 +135,14 @@ void P_select_closest_edge(Polygone* poly, int x, int y)
 	if (poly->sommets == NULL)
 		return;
 	
+	// selectionne le sommet le plus proche
 	P_select_closest_vertex(poly, x, y);
 
 	Liste* last = liste_last(poly->selected);
 	Liste* next = liste_next(poly->selected);
 
+	// calcul l'angle entre le point (x,y), le point sélectionné et le sommet suivant puis le précedent
+	// l'angle le plus petit correspond à l'arrête, adjacente au sommet sélectionné, la plus proche de (x,y)
 	float anglelast = _angle2vec(last->x, last->y, poly->selected->x, poly->selected->y, x, y);
 	float anglenext = _angle2vec(next->x, next->y, poly->selected->x, poly->selected->y, x, y);
 	if (anglelast > anglenext)
