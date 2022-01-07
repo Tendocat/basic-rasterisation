@@ -1,5 +1,5 @@
 /*====================================================*\
-  Arash HABIBI
+  Arash HABIBI, Antoine DUMOULIN
   Image.c
 \*====================================================*/
 
@@ -23,6 +23,7 @@ void C_check(Color c, char *message)
 	fprintf(stderr,"%s : %f %f %f\n",message,c._red,c._green,c._blue);
 }
 
+// test si deux couleurs sont égales
 bool C_eq(Color ca, Color cb)
 {
 	return (ca._blue==cb._blue && ca._green==cb._green && ca._red==cb._red);
@@ -112,16 +113,6 @@ static void _windowToImage(Image *img, int xwin, int ywin, int *ximg, int *yimg)
 }
 
 //-----
-// Changement de repère inverse
-/*
-static void _imageToWindow(Image *img, int ximg, int yimg, int *xwin, int *ywin)
-{
-
-	*xwin = img->_xoffset + img->_xzoom + (ximg-img->_xzoom-img->_xoffset) * img->_zoom;
-	*ywin = img->_yoffset + img->_yzoom + (yimg-img->_yzoom-img->_yoffset) * img->_zoom;
-}
-*/
-//-----
 
 void I_focusPoint(Image *img, int xwin, int ywin)
 {
@@ -182,6 +173,9 @@ void I_draw(Image *img)
 
 //------------------------------------------------------------------------
 
+/*
+ * Fonction du tracé de Bresenham comme vu en TD
+ */
 void Z2to1octant (int xA, int yA, int xB, int yB, 
 				  int* xA10, int* yA10, int* xB10, int* yB10)
 {
@@ -254,39 +248,53 @@ void I_bresenham(Image *img, int xA, int yA, int xB, int yB, Color c)
 	I_plotColor(img, aZ, bZ, c);
 }
 
+/*
+ * Remplissage scanline
+ */
 void I_fill_scan_line(Image* img, Polygone* poly, Color cline)
 {
-	Pile* pile = pile_new();
+	Liste* liste = NULL;
 	bool alterne = true;
 	bool tangent = false;
 
+    // parcours en hauteur de l'écran
 	for(int y=0; y<img->_height; y++)
 	{
+	    // parcours en largeur de l'écran
 		for (int x=0; x<img->_width; x++)
 		{
 			if (C_eq(img->_buffer[x][y], cline))
-				pile = pile_add(pile, x, y);
+				liste = liste_add(liste, x, y);
 		}
 		alterne = true;
-		while (pile->last != NULL)
+		while (liste!=NULL && liste != liste->last)
 		{
 			tangent = false;
-			if (P_is_tangent(poly, pile->x, y))
+			// on regarde si le point est tangent, si oui on alterne pas
+			if (P_is_tangent(poly, liste->x, y))
 				tangent = true;
-			while (pile->last->last != NULL && pile->x == pile->last->x + 1)
+
+			// tant que le prochain point de la liste est adjacent en X on parcours la liste
+			while (liste->last != liste && liste->x == liste->last->x + 1)
 			{
-				if (P_is_tangent(poly, pile->x, y))
+			    // on vérifie encore si un des points parcouru est tangent
+				if (P_is_tangent(poly, liste->x, y))
 					tangent = true;
-				pile = pile_rm(pile);
+				Liste* tmp = liste_last(liste);
+				liste_rm(liste);
+				liste = tmp;
 			}
-			if (tangent) alterne = !alterne;
-			if (pile->last->last != NULL && (alterne)) {
-				for (int i=pile->x-1; i > pile->last->x; i--)
+			
+			if (tangent) alterne = !alterne; // on réinverse alterne car le un point est tangent
+
+			// une fois sur deux on va remplir du point courant jusqu'au prochain de la liste
+			if (liste != NULL && liste->last != liste && alterne) {
+				for (int i=liste->x-1; i > liste->last->x; i--)
 					I_plotColor(img, i, y, cline);
 			}
-			pile = pile_rm(pile);
+			liste = liste_rm(liste);
 			alterne = !alterne;
 		}
 	}
-	pile_destruct(pile);
+	liste_destruct(liste);
 }

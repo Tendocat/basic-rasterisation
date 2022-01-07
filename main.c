@@ -1,13 +1,8 @@
 
 /*===============================================================*\
-
-	Arash Habibi
+	Arash Habibi, Antoine DUMOULIN
 
 	main.c
-
-	Un programme equivalent à 02_glut.c et qui ne prend en compte
-	que trois événements pour quitter le programme.
-
 \*===============================================================*/
 #include <stdbool.h>
 #include <stdio.h>
@@ -26,27 +21,40 @@ bool ouvert = true, fill = false;
 Polygone* poly;
 Image *img;
 
+/*
+ * Dessine le polygone
+ */
 void draw_poly(Polygone* p)
 {
-	for (Pile* pile=p->sommets; pile->last!=NULL && pile->last->last!=NULL; pile=pile->last) {
-    	I_bresenham(img, pile->last->x, pile->last->y, pile->x, pile->y, C_blanc);
+	// le polygone n'a pas de sommet
+	if (p->sommets == NULL)
+		return;
+	
+    // trace les arrêtes
+	for (Liste* liste=p->sommets; liste->last!=p->sommets; liste=liste->last) {
+    	I_bresenham(img, liste->last->x, liste->last->y, liste->x, liste->y, C_blanc);
 	}
+	
+	// si ferme le polygone on trace une arrête entre le dernier et le premier vertex (même si il n'y en a qu'un)
 	if (!ouvert) {
-		Pile* fermeture = pile_next(p->sommets, p->sommets);
+		Liste* fermeture = liste_next(p->sommets);
 		I_bresenham(img, p->sommets->x, p->sommets->y, fermeture->x, fermeture->y, C_blanc);
 		if (fill)
 			I_fill_scan_line(img, poly, C_blanc);
 	}
 
+    // en mode edge on trace l'arrête sélectionné en rouge
 	if (mode == edge)
 		I_bresenham(img, poly->selected->x, poly->selected->y,
-					pile_next(poly->sommets, poly->selected)->x,
-					pile_next(poly->sommets, poly->selected)->y,
+					liste_next(poly->selected)->x,
+					liste_next(poly->selected)->y,
 					C_rouge);
 
+    // pour ne pas dessiner un cuseur s'il ne faut pas
 	if (p->selected == NULL || p->selected->last == NULL || mode == edge)
 		return;
 	
+	// dessine le curseur du vertex sélectionné en rouge
 	for (int i=p->selected->x-5; i<p->selected->x+6;i++)
 		if (i > 0 && i < img->_width)
 			I_plotColor(img, i, p->selected->y, C_new(255, 0, 0));
@@ -74,49 +82,43 @@ void display_CB()
     glutSwapBuffers();
 }
 
-//------------------------------------------------------------------
-// Cette fonction permet de réagir en fonction de la position de
-// la souris (x,y), en fonction du bouton de la souris qui a été
-// pressé ou relaché.
-//------------------------------------------------------------------
-
 void mouse_CB(int button, int state, int x, int y)
 {
+    // pour le clic gauche
 	if((button==GLUT_LEFT_BUTTON)&&(state==GLUT_DOWN)) {
 		I_focusPoint(img,x,img->_height-y);
+		// en mode insertion on ajoute un nouveau vertex
 		if(ouvert && mode == append)
 			P_append_sommet(poly, x, y);
+		// en mode vertex on sélectionne le vertex le plus proche
 		else if (mode == vertex)
 			P_select_closest_vertex(poly, x, y);
+		// en mode edge on sélection l'edge la plus proche (détaillé dans la fonction)
 		else if (mode == edge)
 			P_select_closest_edge(poly, x, y);
 	}
+	
+	// le clic droit en mode edge ajoute un vertex entre les deux de l'arrête
 	if((button==GLUT_RIGHT_BUTTON)&&(state==GLUT_DOWN) && mode == edge) {
 		P_insert_sommet(poly, x, y);
 	}
 	glutPostRedisplay();
 }
 
-//------------------------------------------------------------------
-// Cette fonction permet de réagir au fait que l'utilisateur
-// presse une touche (non-spéciale) du clavier.
-//------------------------------------------------------------------
-
 void keyboard_CB(unsigned char key, int x, int y)
 {
-	// fprintf(stderr,"key=%d\n",key);
 	switch(key)
 	{
 	case 27 : exit(1); break;
 	case 'z' : I_zoom(img,2.0); break;
 	case 'Z' : I_zoom(img,0.5); break;
 	case 'a' : I_zoomInit(img); break;
-	case 'c' : ouvert = !ouvert;break;
-	case 'f' : fill = !fill;	break;
-	case 'i' : mode = append;	break;
-	case 'v' : mode = vertex;	break;
-	case 'e' : mode = edge;		break;
-	case 127 :
+	case 'c' : ouvert = !ouvert;break; // ferme le polygone
+	case 'f' : fill = !fill;	break; // rempli le polygone
+	case 'i' : mode = append;	break; // mode insertion
+	case 'v' : mode = vertex;	break; // mode vertex
+	case 'e' : mode = edge;		break; // mode edge
+	case 127 :                         // suppr en mode vertex
 		if (mode == vertex)
 			P_rm_selected(poly);
 	break;
@@ -125,21 +127,16 @@ void keyboard_CB(unsigned char key, int x, int y)
 	glutPostRedisplay();
 }
 
-//------------------------------------------------------------------
-// Cette fonction permet de réagir au fait que l'utilisateur
-// presse une touche spéciale (F1, F2 ... F12, home, end, insert,
-// haut, bas, droite, gauche etc).
-//------------------------------------------------------------------
+
 
 void special_CB(int key, int x, int y)
 {
-	// int mod = glutGetModifiers();
-
 	int d = 10;
-
+	
+    // en fonction du mode les touches n'ont pas le même effet
 	switch (mode)
 	{
-	case append:
+	case append: // les flêches bougent l'image sur la fenêtre
 		switch(key)
 		{
 		case GLUT_KEY_UP    : I_move(img,0,d); break;
@@ -152,8 +149,12 @@ void special_CB(int key, int x, int y)
 	case vertex:
 		switch(key)
 		{
+		// last page, pour sélectionner le vertex précédent
 		case 104    		: P_focus_last(poly); break;
+		// next page, pour sélectionner le vertex suivant
 		case 105    		: P_focus_next(poly); break;
+		
+		// les 4 flèches pour déplacer le vertex
 		case GLUT_KEY_UP    :
 			if (poly->selected->y>0) 
 				poly->selected->y--; 
@@ -176,7 +177,9 @@ void special_CB(int key, int x, int y)
 	case edge:
 		switch(key)
 		{
+		// last page, pour sélectionner l'arrête précédente
 		case 104    		: P_focus_last(poly); break;
+		// next page, pour sélectionner l'arrête suivante
 		case 105    		: P_focus_next(poly); break;
 		default : fprintf(stderr,"special_CB : %d : unknown key.\n",key);
 		}
@@ -221,8 +224,6 @@ int main(int argc, char **argv)
 		glutKeyboardFunc(keyboard_CB);
 		glutSpecialFunc(special_CB);
 		glutMouseFunc(mouse_CB);
-		// glutMotionFunc(mouse_move_CB);
-		// glutPassiveMotionFunc(passive_mouse_move_CB);
 
 		glutMainLoop();
 

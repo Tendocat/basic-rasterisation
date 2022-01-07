@@ -1,5 +1,5 @@
 /*====================================================*\
-  Arash HABIBI
+  Arash HABIBI, ANtoine DUMOULIN
   Image.h
 \*====================================================*/
 
@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <GL/gl.h>
 
-#include "pile.h"
+#include "liste.h"
 #include "polygone.h"
 
 //-----------------------------------------------------
@@ -52,6 +52,9 @@ void I_move       (Image *img, int x, int y);
 
 void I_draw       (Image *img);
 
+/*
+ * les deux fonctions implémentées
+ */
 void I_bresenham(Image *img, int xA, int yA, int xB, int yB, Color c);
 void I_fill_scan_line(Image* img, Polygone* poly, Color cline);
 #endif

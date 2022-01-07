@@ -5,12 +5,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include "pile.h"
+#include "liste.h"
 
+/*
+ * la structure de donnée d'un polygone
+ */
 typedef struct
 {
-	Pile* sommets;
-	Pile* selected;
+	Liste* sommets;	// la liste des sommets
+	Liste* selected;// le sommet sélectionné
 } Polygone;
 
 Polygone* P_new_poly();
